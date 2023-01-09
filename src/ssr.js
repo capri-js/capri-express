@@ -1,7 +1,4 @@
 import * as jsxRuntime from "react/jsx-runtime";
-import "fs";
-import "path";
-import "cheerio";
 import { createContext, createElement, useContext, useState, StrictMode } from "react";
 import render$2 from "react-render-to-string";
 import { StaticRouter } from "react-router-dom/server.js";
@@ -23,71 +20,6 @@ class StaticRenderContext {
   setHeader(name, value) {
     this.headers[name] = value;
   }
-}
-class Template {
-  constructor(html) {
-    this.html = html;
-  }
-  getIslands() {
-    return [
-      ...this.html.matchAll(/<script[^>]+data-island="(.+?)"[^>]*>([\s\S]+?)<\/script>/gi)
-    ].map(([, island, json]) => ({ island, json }));
-  }
-  removeScripts(test) {
-    this.html = this.html.replace(/<\s*script(.*?)>([\s\S]*?)<\s*\/\s*script\s*>\s*/gi, (match, attrs, text) => {
-      if (test.src) {
-        const [, src] = /\bsrc\s*=\s*"(.+?)"/.exec(attrs) ?? [];
-        if (src && src.match(test.src))
-          return "";
-      }
-      if (test.text && text.match(test.text)) {
-        return "";
-      }
-      return match;
-    });
-  }
-  insertMarkup(markup) {
-    for (const [selector, insert] of Object.entries(markup)) {
-      if (insert) {
-        if (!selector.match(/^#?[\w]+$/)) {
-          throw new Error(`Unsupported selector: ${selector}`);
-        }
-        if (selector.startsWith("#")) {
-          this.html = this.html.replace(new RegExp(`\\bid\\s*=\\s*"${selector.slice(1)}"[^>]*>`), `$&${insert}`);
-        } else {
-          this.html = this.html.replace(new RegExp(`<\\s*/\\s*${selector}[^>]*>`), `${insert}$&`);
-        }
-      }
-    }
-  }
-  toString() {
-    return this.html;
-  }
-}
-async function renderHtml(renderFn2, url, indexHtml, css2, context = new StaticRenderContext()) {
-  const result = await renderFn2(url, context);
-  if (!result)
-    return;
-  const template2 = new Template(indexHtml);
-  template2.insertMarkup(await resolveMarkup(result));
-  const head = css2.map((href) => `<link rel="stylesheet" href="${href}">`).join("");
-  template2.insertMarkup({ head });
-  const islands = template2.getIslands();
-  if (!islands.length) {
-    console.log("No islands found, removing hydration code");
-    template2.removeScripts({
-      src: /index-|-legacy|modulepreload-polyfill/,
-      text: /__vite_is_modern_browser|"noModule"|_\$HY/
-    });
-  }
-  return template2.toString();
-}
-async function resolveMarkup(markup) {
-  const resolved = {};
-  for (const [key, value] of Object.entries(markup)) {
-    resolved[key] = await value;
-  }
-  return resolved;
 }
 const renderContext = createContext(new StaticRenderContext());
 function renderToString(children, context) {
@@ -171,6 +103,71 @@ const renderModule = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.define
   __proto__: null,
   render: render$1
 }, Symbol.toStringTag, { value: "Module" }));
+class Template {
+  constructor(html) {
+    this.html = html;
+  }
+  getIslands() {
+    return [
+      ...this.html.matchAll(/<script[^>]+data-island="(.+?)"[^>]*>([\s\S]+?)<\/script>/gi)
+    ].map(([, island, json]) => ({ island, json }));
+  }
+  removeScripts(test) {
+    this.html = this.html.replace(/<\s*script(.*?)>([\s\S]*?)<\s*\/\s*script\s*>\s*/gi, (match, attrs, text) => {
+      if (test.src) {
+        const [, src] = /\bsrc\s*=\s*"(.+?)"/.exec(attrs) ?? [];
+        if (src && src.match(test.src))
+          return "";
+      }
+      if (test.text && text.match(test.text)) {
+        return "";
+      }
+      return match;
+    });
+  }
+  insertMarkup(markup) {
+    for (const [selector, insert] of Object.entries(markup)) {
+      if (insert) {
+        if (!selector.match(/^#?[\w]+$/)) {
+          throw new Error(`Unsupported selector: ${selector}`);
+        }
+        if (selector.startsWith("#")) {
+          this.html = this.html.replace(new RegExp(`\\bid\\s*=\\s*"${selector.slice(1)}"[^>]*>`), `$&${insert}`);
+        } else {
+          this.html = this.html.replace(new RegExp(`<\\s*/\\s*${selector}[^>]*>`), `${insert}$&`);
+        }
+      }
+    }
+  }
+  toString() {
+    return this.html;
+  }
+}
+async function renderHtml(renderFn2, url, indexHtml, css2, context = new StaticRenderContext()) {
+  const result = await renderFn2(url, context);
+  if (!result)
+    return;
+  const template2 = new Template(indexHtml);
+  template2.insertMarkup(await resolveMarkup(result));
+  const head = css2.map((href) => `<link rel="stylesheet" href="${href}">`).join("");
+  template2.insertMarkup({ head });
+  const islands = template2.getIslands();
+  if (!islands.length) {
+    console.log("No islands found, removing hydration code");
+    template2.removeScripts({
+      src: /index-|-legacy|modulepreload-polyfill/,
+      text: /__vite_is_modern_browser|"noModule"|_\$HY/
+    });
+  }
+  return template2.toString();
+}
+async function resolveMarkup(markup) {
+  const resolved = {};
+  for (const [key, value] of Object.entries(markup)) {
+    resolved[key] = await value;
+  }
+  return resolved;
+}
 const render = renderModule;
 const renderFn = render.render ?? render.default;
 const template = '<!DOCTYPE html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\n    <link rel="icon" type="image/svg+xml" href="/assets/capri-ce1c56b3.svg" />\n    <script type="module" crossorigin src="/assets/index-11aaa67d.js"><\/script>\n  </head>\n  <body>\n    <div id="app"></div>\n    \n  </body>\n</html>\n';
